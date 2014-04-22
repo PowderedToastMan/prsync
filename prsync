@@ -1,0 +1,31 @@
+#! /usr/bin/env bash
+
+processes=10;
+
+usage() {
+  echo "$(basename $0) [-p PROCS] SRC DST"
+  exit
+}
+
+while getopts "p:" opt; do
+  case $opt in
+    p)processes=$OPTARG ;;
+    *)exit $?;;
+  esac
+done
+shift $(($OPTIND -1))
+
+[[ "$#" == 2 ]] || usage
+[[ -d "$1" ]]   || { echo "source: $1 not found" >&2; exit 1; }
+[[ -d "$2" ]]   || { echo "dest: $2 not found" >&2;   exit 1; }
+
+source=$1
+dest=$2
+
+find "$source" -depth -type d -printf "%P\0" | xargs -0 -P $processes -I % bash -c "
+echo \"$dest%\"
+mkdir -p \"$dest%\"
+chown --reference=\"$source%\" \"$dest%\" 2>/dev/null
+chmod --reference=\"$source%\" \"$dest%\" 2>/dev/null
+rsync -a --inplace --numeric-ids --delete \"$source%/\" \"$dest%/\"
+"
